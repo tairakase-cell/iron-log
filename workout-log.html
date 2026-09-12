@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+<title>IRON LOG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14161a;
+    --surface: #1d2024;
+    --surface-2: #23272c;
+    --border: #2e3338;
+    --text: #f2f1ed;
+    --text-muted: #8b9099;
+    --accent: #f2b705;
+    --accent-contrast: #14161a;
+    --tier-green: #3fa34d;
+    --tier-gold: #e8b33d;
+    --tier-blue: #3e7cb1;
+    --tier-red: #c1443c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #0a0b0d;
+    color: var(--text);
+    font-family: 'Inter', -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .phone-frame {
+    width: 100%;
+    height: 100dvh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  @media (min-width: 560px) {
+    body { display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .phone-frame {
+      width: 390px;
+      height: 844px;
+      max-height: 92vh;
+      border-radius: 44px;
+      box-shadow: 0 0 0 10px #000, 0 30px 80px rgba(0,0,0,.6);
+    }
+  }
+
+  /* ---- screen switching ---- */
+  .screen { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .screen.active { display: flex; }
+
+  .select-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: max(20px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+  }
+
+  .top-fixed {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    padding: max(20px, env(safe-area-inset-top)) 18px 0;
+    box-shadow: 0 8px 12px -8px rgba(0,0,0,.5);
+  }
+  .log-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 18px max(24px, env(safe-area-inset-bottom));
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 22px;
+  }
+  .wordmark { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: 0.5px; line-height: 1; }
+  .wordmark-accent { color: var(--accent); }
+  .header-sub { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .header-label { font-size: 11px; color: var(--text-muted); }
+  .header-date { font-family: 'Oswald', sans-serif; font-size: 13px; font-weight: 500; }
+
+  /* ---- screen 1: selection ---- */
+  .select-intro { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+  .select-group { margin-bottom: 26px; }
+  .select-group .field-label { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 10px; }
+  .select-group .chip { font-size: 14px; padding: 12px 16px; }
+
+  .goal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+  }
+  .goal-label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .goal-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'Oswald', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 0;
+  }
+  .goal-input:focus { outline: none; }
+  .goal-input::placeholder { color: var(--text-muted); font-family: 'Inter', sans-serif; font-weight: 400; font-size: 14px; }
+
+  .week-widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 14px 16px;
+    margin-bottom: 26px;
+  }
+  .week-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .week-label { font-size: 12px; color: var(--text-muted); }
+  .week-count { font-family: 'Oswald', sans-serif; font-size: 20px; font-weight: 600; }
+  .week-count-unit { font-size: 12px; color: var(--text-muted); margin-left: 2px; }
+  .week-days { display: flex; justify-content: space-between; }
+  .week-day { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .week-day-label { font-size: 11px; color: var(--text-muted); }
+  .week-day-dot {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .week-day-dot-active { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+  .week-day-dot-today:not(.week-day-dot-active) { border-color: var(--accent); border-width: 2px; }
+
+  .select-group.bottom-stats { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 6px; margin-bottom: 4px; }
+
+  .select-group-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .select-group-header .field-label { margin-bottom: 0; }
+  .edit-toggle { background: none; border: none; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 0; cursor: pointer; }
+  .edit-toggle.active { color: var(--accent); }
+  .add-exercise-link { display: block; background: none; border: none; color: var(--accent); font-family: 'Inter', sans-serif; font-size: 13px; padding: 12px 0 0; cursor: pointer; text-align: left; }
+  .add-exercise-row { display: flex; gap: 8px; margin-top: 10px; }
+  .add-exercise-row input { flex: 1; }
+  .add-exercise-confirm {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border: none;
+    border-radius: 2px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 0 16px;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .chip-editable {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--tier-red);
+    border-radius: 2px;
+    padding: 8px 8px 8px 14px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .chip-delete { background: none; border: none; color: var(--tier-red); font-size: 16px; line-height: 1; padding: 4px 6px; cursor: pointer; min-width: 28px; min-height: 28px; }
+  .exercise-empty { font-size: 12px; color: var(--text-muted); }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 10px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .chip-active { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); font-weight: 600; }
+
+  /* ---- screen 2: log entry ---- */
+  .log-header-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 8px 0;
+    cursor: pointer;
+  }
+  .back-btn:active { color: var(--accent); }
+  .current-exercise { text-align: right; }
+  .current-part { font-size: 11px; color: var(--text-muted); }
+  .current-exercise-name { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 19px; }
+
+  .stats { display: flex; border: 1px solid var(--border); border-radius: 3px; margin-bottom: 18px; overflow: hidden; }
+  .stat { flex: 1; padding: 13px 14px; text-align: left; }
+  .stat + .stat { border-left: 1px solid var(--border); }
+  .stat-value { font-family: 'Oswald', sans-serif; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat-unit { font-size: 12px; margin-left: 3px; color: var(--text-muted); }
+  .stat-label { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+
+  .form-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 15px;
+    margin-bottom: 18px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 12px; color: var(--text-muted); }
+  .form-row { margin-bottom: 12px; }
+  .form-row-numbers { display: flex; gap: 9px; }
+  .field-num { flex: 1; min-width: 0; }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    padding: 12px 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  input::placeholder { color: #565b61; }
+  .field-input-unit { position: relative; display: flex; align-items: center; }
+  .field-input-unit input { padding-right: 34px; }
+  .field-input-unit .unit { position: absolute; right: 12px; font-size: 13px; color: var(--text-muted); }
+  .form-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; gap: 12px; }
+  .form-error { font-size: 12px; color: var(--tier-red); flex: 1; }
+  .add-btn {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border: none;
+    border-radius: 2px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.3px;
+    padding: 13px 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+    min-height: 44px;
+  }
+  .add-btn:active { transform: translateY(1px); }
+
+  .date-group { margin-bottom: 22px; }
+  .date-heading { font-size: 13px; color: var(--text-muted); padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .exercise-block { margin-bottom: 4px; }
+  .exercise-heading { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 2px 6px; }
+  .exercise-name { font-size: 15px; font-weight: 600; }
+  .exercise-summary { font-size: 12px; color: var(--text-muted); }
+  .entry { display: flex; align-items: center; justify-content: space-between; padding: 10px 2px 10px 12px; border-bottom: 1px solid var(--border); border-left: 3px solid var(--tier-green); }
+  .entry.tier-gold { border-left-color: var(--tier-gold); }
+  .entry.tier-blue { border-left-color: var(--tier-blue); }
+  .entry.tier-red { border-left-color: var(--tier-red); }
+  .entry-exercise { font-size: 15px; margin-bottom: 3px; }
+  .entry-detail { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .entry-weight { font-family: 'Oswald', sans-serif; font-size: 17px; color: var(--text); font-weight: 600; }
+  .entry-unit { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
+  .delete-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; line-height: 1; padding: 12px 12px; min-width: 44px; min-height: 44px; cursor: pointer; }
+  .delete-btn:active { color: var(--tier-red); }
+
+  .empty-state { text-align: center; padding: 44px 12px; color: var(--text-muted); }
+  .empty-title { font-size: 15px; color: var(--text); margin: 0 0 6px; }
+  .empty-sub { font-size: 13px; margin: 0; }
+  .loading { text-align: center; padding: 44px 0; color: var(--text-muted); font-size: 13px; }
+
+  .footnote { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="phone-frame">
+
+  <!-- Screen 1: choose body part, then exercise -->
+  <div id="screenSelect" class="screen active">
+    <div class="select-scroll">
+      <header class="header">
+        <div class="wordmark">IRON<span class="wordmark-accent">LOG</span></div>
+        <div class="header-sub">
+          <span class="header-label">重量トレーニング記録</span>
+          <span class="header-date" id="todayDate"></span>
+        </div>
+      </header>
+
+      <div class="goal-card">
+        <span class="goal-label">目標</span>
+        <input type="text" id="goalInput" class="goal-input" placeholder="目標を設定する(例: ベンチプレス100kg)" autocomplete="off" />
+      </div>
+
+      <div class="week-widget">
+        <div class="week-header">
+          <span class="week-label">今週のトレーニング</span>
+          <span class="week-count" id="weekCount"></span>
+        </div>
+        <div class="week-days" id="weekDays"></div>
+      </div>
+
+      <div class="select-group">
+        <span class="field-label">部位</span>
+        <div class="chip-row" id="partChips"></div>
+      </div>
+      <div class="select-group" id="exerciseRow" style="display:none;">
+        <div class="select-group-header">
+          <span class="field-label">種目</span>
+          <button type="button" class="edit-toggle" id="editToggleBtn">編集</button>
+        </div>
+        <div class="chip-row" id="exerciseChips"></div>
+        <button type="button" class="add-exercise-link" id="addExerciseBtn">＋ 新しい種目を追加</button>
+        <div class="add-exercise-row" id="addExerciseRow" style="display:none;">
+          <input type="text" id="newExerciseInput" placeholder="種目名を入力" autocomplete="off" />
+          <button type="button" class="add-exercise-confirm" id="confirmAddExercise">追加</button>
+        </div>
+      </div>
+
+      <div class="select-group bottom-stats">
+        <section class="stats" id="statsBarSelect"></section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: log a set, view records -->
+  <div id="screenLog" class="screen">
+    <div class="top-fixed">
+      <div class="log-header-bar">
+        <button class="back-btn" id="backBtn">← 種目を変更</button>
+        <div class="current-exercise">
+          <div class="current-part" id="currentPartLabel"></div>
+          <div class="current-exercise-name" id="currentExerciseName"></div>
+        </div>
+      </div>
+
+      <div class="form-row" id="customRow" style="display:none;">
+        <label class="field">
+          <span class="field-label">種目名を入力</span>
+          <input type="text" id="customExerciseInput" placeholder="例: アーノルドプレス" autocomplete="off" />
+        </label>
+      </div>
+
+      <section class="form-panel">
+        <div class="form-row form-row-numbers">
+          <label class="field field-num">
+            <span class="field-label">重量</span>
+            <div class="field-input-unit">
+              <input type="number" id="weightInput" inputmode="decimal" min="0" step="0.5" placeholder="60" />
+              <span class="unit">kg</span>
+            </div>
+          </label>
+          <label class="field field-num">
+            <span class="field-label">回数</span>
+            <input type="number" id="repsInput" inputmode="numeric" min="0" placeholder="8" />
+          </label>
+          <label class="field field-num">
+            <span class="field-label">セット数</span>
+            <input type="number" id="setsInput" inputmode="numeric" min="0" placeholder="3" />
+          </label>
+        </div>
+        <div class="form-footer">
+          <span class="form-error" id="formError"></span>
+          <button class="add-btn" id="addBtn">記録する</button>
+        </div>
+      </section>
+
+      <section class="stats" id="statsBar"></section>
+    </div>
+
+    <div class="log-scroll">
+      <section class="log-section">
+        <div id="logList" class="log-list">
+          <div class="loading">読み込み中…</div>
+        </div>
+      </section>
+      <p class="footnote">記録はこの端末のブラウザに保存されます。同じファイルを同じブラウザで開けば、次回も記録が残ります。</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let entries = [];
+  let selectedPart = null;
+  let selectedExercise = null;
+  let editMode = false;
+  let isAddingExercise = false;
+
+  const PART_LIST = ['胸','背中','脚','肩','腕','腹部','その他'];
+  const PART_INITIAL = { '胸':'胸','背中':'背','脚':'脚','肩':'肩','腕':'腕','腹部':'腹','その他':'他' };
+  const DEFAULT_EXERCISE_DATA = {
+    '胸': ['ベンチプレス','インクラインベンチプレス','ダンベルフライ','チェストプレス','ケーブルクロスオーバー','プッシュアップ'],
+    '背中': ['デッドリフト','ラットプルダウン','ベントオーバーロウ','シーテッドロウ','懸垂','Tバーロウ'],
+    '脚': ['スクワット','レッグプレス','レッグエクステンション','レッグカール','ランジ','カーフレイズ'],
+    '肩': ['ショルダープレス','サイドレイズ','フロントレイズ','リアレイズ','アップライトロウ','シュラッグ'],
+    '腕': ['アームカール','トライセプスエクステンション','ハンマーカール','ケーブルプッシュダウン','プリーチャーカール','ディップス'],
+    '腹部': ['クランチ','レッグレイズ','プランク','アブローラー','ロシアンツイスト','ハンギングレッグレイズ']
+  };
+  const EXERCISES_KEY = 'iron-log-exercises';
+  let exerciseData = {};
+
+  function loadExerciseData() {
+    let saved = {};
+    try {
+      const raw = localStorage.getItem(EXERCISES_KEY);
+      saved = raw ? JSON.parse(raw) : {};
+    } catch (err) {
+      saved = {};
+    }
+    if (saved['腹'] && !saved['腹部']) saved['腹部'] = saved['腹']; // 旧名からの移行
+    exerciseData = {};
+    Object.keys(DEFAULT_EXERCISE_DATA).forEach(part => {
+      exerciseData[part] = Array.isArray(saved[part]) ? saved[part] : DEFAULT_EXERCISE_DATA[part].slice();
+    });
+  }
+  function saveExerciseData() {
+    try {
+      localStorage.setItem(EXERCISES_KEY, JSON.stringify(exerciseData));
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  const DAY_NAMES = ['日','月','火','水','木','金','土'];
+
+  function todayISO() {
+    return isoOf(new Date());
+  }
+  function isoOf(date) {
+    return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+  }
+  function getWeekDates() {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = (day === 0) ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      dates.push(isoOf(d));
+    }
+    return dates;
+  }
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function tierClass(weight) {
+    if (weight < 40) return 'tier-green';
+    if (weight < 80) return 'tier-gold';
+    if (weight < 120) return 'tier-blue';
+    return 'tier-red';
+  }
+  function formatHeaderDate() {
+    const d = new Date();
+    return `${d.getMonth()+1}月${d.getDate()}日(${DAY_NAMES[d.getDay()]})`;
+  }
+  function formatDateHeading(dateStr) {
+    const [y,m,d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m-1, d);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate()-1);
+    let prefix = '';
+    if (dateStr === todayISO()) prefix = '今日 ';
+    else if (dateStr === isoOf(yesterday)) prefix = '昨日 ';
+    return `${prefix}${m}月${d}日(${DAY_NAMES[date.getDay()]})`;
+  }
+  function showError(msg) { document.getElementById('formError').textContent = msg; }
+  function clearError() { document.getElementById('formError').textContent = ''; }
+
+  function showScreen(name) {
+    document.getElementById('screenSelect').classList.toggle('active', name === 'select');
+    document.getElementById('screenLog').classList.toggle('active', name === 'log');
+  }
+
+  const STORAGE_KEY = 'iron-log-entries';
+  const GOAL_KEY = 'iron-log-goal';
+
+  function loadGoal() {
+    try {
+      document.getElementById('goalInput').value = localStorage.getItem(GOAL_KEY) || '';
+    } catch (err) {
+      /* ignore */
+    }
+  }
+  function saveGoal() {
+    try {
+      localStorage.setItem(GOAL_KEY, document.getElementById('goalInput').value.trim());
+    } catch (err) {
+      /* ignore */
+    }
+  }
+  document.getElementById('goalInput').addEventListener('blur', saveGoal);
+  document.getElementById('goalInput').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') ev.target.blur();
+  });
+
+  function loadEntries() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      entries = raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      entries = [];
+    }
+    renderAll();
+  }
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    } catch (err) {
+      showError('保存に失敗しました。ブラウザのプライベートモードなどをご確認ください。');
+    }
+  }
+
+  function renderPartChips() {
+    const el = document.getElementById('partChips');
+    el.innerHTML = PART_LIST.map(part => `
+      <button type="button" class="chip ${part === selectedPart ? 'chip-active' : ''}" data-part="${part}">${part}</button>
+    `).join('');
+  }
+
+  function renderExerciseChips() {
+    const row = document.getElementById('exerciseRow');
+    const chipsEl = document.getElementById('exerciseChips');
+    const editBtn = document.getElementById('editToggleBtn');
+    const addLink = document.getElementById('addExerciseBtn');
+    const addRow = document.getElementById('addExerciseRow');
+
+    if (!selectedPart) { row.style.display = 'none'; return; }
+    row.style.display = 'block';
+
+    const isOther = selectedPart === 'その他';
+    editBtn.style.display = isOther ? 'none' : 'inline-block';
+    addLink.style.display = isOther ? 'none' : 'block';
+    editBtn.textContent = editMode ? '完了' : '編集';
+    editBtn.classList.toggle('active', editMode);
+
+    if (isOther) {
+      addRow.style.display = 'none';
+      chipsEl.innerHTML = `<button type="button" class="chip ${selectedExercise === 'その他' ? 'chip-active' : ''}" data-exercise="その他">その他</button>`;
+      return;
+    }
+
+    const list = exerciseData[selectedPart] || [];
+    addRow.style.display = isAddingExercise ? 'flex' : 'none';
+
+    if (list.length === 0) {
+      chipsEl.innerHTML = `<p class="exercise-empty">まだ種目がありません。下から追加してください。</p>`;
+    } else if (editMode) {
+      chipsEl.innerHTML = list.map(ex => `
+        <div class="chip-editable">
+          <span>${escapeHtml(ex)}</span>
+          <button type="button" class="chip-delete" data-exercise="${escapeHtml(ex)}" aria-label="削除">×</button>
+        </div>
+      `).join('');
+    } else {
+      chipsEl.innerHTML = list.map(ex => `
+        <button type="button" class="chip ${ex === selectedExercise ? 'chip-active' : ''}" data-exercise="${escapeHtml(ex)}">${escapeHtml(ex)}</button>
+      `).join('');
+    }
+  }
+
+  function addNewExercise() {
+    const input = document.getElementById('newExerciseInput');
+    const name = input.value.trim();
+    if (!name || !selectedPart || selectedPart === 'その他') return;
+    if (!exerciseData[selectedPart].includes(name)) {
+      exerciseData[selectedPart].push(name);
+      saveExerciseData();
+    }
+    input.value = '';
+    isAddingExercise = false;
+    renderExerciseChips();
+  }
+
+  document.getElementById('editToggleBtn').addEventListener('click', () => {
+    editMode = !editMode;
+    isAddingExercise = false;
+    renderExerciseChips();
+  });
+  document.getElementById('addExerciseBtn').addEventListener('click', () => {
+    isAddingExercise = true;
+    renderExerciseChips();
+    const input = document.getElementById('newExerciseInput');
+    if (input) input.focus();
+  });
+  document.getElementById('confirmAddExercise').addEventListener('click', addNewExercise);
+  document.getElementById('newExerciseInput').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') addNewExercise();
+  });
+
+  function updateCustomRowVisibility() {
+    document.getElementById('customRow').style.display = (selectedExercise === 'その他') ? 'block' : 'none';
+  }
+
+  function updateCurrentExerciseLabel() {
+    document.getElementById('currentPartLabel').textContent = selectedPart || '';
+    document.getElementById('currentExerciseName').textContent = selectedExercise || '';
+  }
+
+  document.getElementById('partChips').addEventListener('click', ev => {
+    const btn = ev.target.closest('.chip');
+    if (!btn) return;
+    selectedPart = btn.getAttribute('data-part');
+    selectedExercise = null;
+    editMode = false;
+    isAddingExercise = false;
+    renderPartChips();
+    renderExerciseChips();
+  });
+
+  document.getElementById('exerciseChips').addEventListener('click', ev => {
+    const delBtn = ev.target.closest('.chip-delete');
+    if (delBtn) {
+      const ex = delBtn.getAttribute('data-exercise');
+      exerciseData[selectedPart] = exerciseData[selectedPart].filter(e => e !== ex);
+      saveExerciseData();
+      if (selectedExercise === ex) selectedExercise = null;
+      renderExerciseChips();
+      return;
+    }
+    const btn = ev.target.closest('.chip');
+    if (!btn) return;
+    selectedExercise = btn.getAttribute('data-exercise');
+    renderExerciseChips();
+    updateCustomRowVisibility();
+    updateCurrentExerciseLabel();
+    clearError();
+    showScreen('log');
+    if (selectedExercise === 'その他') {
+      document.getElementById('customExerciseInput').focus();
+    } else {
+      document.getElementById('weightInput').focus();
+    }
+  });
+
+  document.getElementById('backBtn').addEventListener('click', () => {
+    showScreen('select');
+  });
+
+  function renderStats() {
+    const today = todayISO();
+    const todays = entries.filter(e => e.date === today);
+    const setsCount = todays.reduce((s,e) => s + Number(e.sets), 0);
+    const volume = todays.reduce((s,e) => s + e.weight * e.reps * e.sets, 0);
+    const html = `
+      <div class="stat">
+        <div class="stat-value">${setsCount}</div>
+        <div class="stat-label">本日のセット数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">${volume.toLocaleString()}<span class="stat-unit">kg</span></div>
+        <div class="stat-label">本日の総挙上量</div>
+      </div>
+    `;
+    document.getElementById('statsBar').innerHTML = html;
+    const selectStats = document.getElementById('statsBarSelect');
+    if (selectStats) selectStats.innerHTML = html;
+  }
+
+  function renderWeekWidget() {
+    const weekDates = getWeekDates();
+    const todayStr = todayISO();
+    const dayLabels = ['月','火','水','木','金','土','日'];
+    const activeDates = new Set(entries.map(e => e.date));
+    const partsByDate = {};
+    entries.forEach(e => {
+      if (!e.part) return;
+      const set = (partsByDate[e.date] = partsByDate[e.date] || new Set());
+      set.add(e.part);
+    });
+    const trainedCount = weekDates.filter(d => activeDates.has(d)).length;
+    document.getElementById('weekCount').innerHTML = `${trainedCount}<span class="week-count-unit">日 / 7日</span>`;
+    document.getElementById('weekDays').innerHTML = weekDates.map((d, i) => {
+      const active = activeDates.has(d);
+      const isToday = d === todayStr;
+      const parts = partsByDate[d] ? Array.from(partsByDate[d]) : [];
+      const label = parts.slice(0, 2).map(p => PART_INITIAL[p] || p.charAt(0)).join('') + (parts.length > 2 ? '+' : '');
+      return `<div class="week-day">
+        <span class="week-day-label">${dayLabels[i]}</span>
+        <span class="week-day-dot ${active ? 'week-day-dot-active' : ''} ${isToday ? 'week-day-dot-today' : ''}">${active ? label : ''}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderList() {
+    const listEl = document.getElementById('logList');
+    if (entries.length === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state">
+          <p class="empty-title">まだ記録がありません</p>
+          <p class="empty-sub">最初のセットを記録しましょう。</p>
+        </div>`;
+      return;
+    }
+    const dateGroups = {};
+    entries.forEach(e => { (dateGroups[e.date] = dateGroups[e.date] || []).push(e); });
+    const dates = Object.keys(dateGroups).sort((a,b) => b.localeCompare(a));
+    let html = '';
+    dates.forEach(date => {
+      const exerciseGroups = {};
+      dateGroups[date].forEach(e => { (exerciseGroups[e.exercise] = exerciseGroups[e.exercise] || []).push(e); });
+      const exerciseNames = Object.keys(exerciseGroups).sort((a,b) => {
+        const aLatest = Math.max(...exerciseGroups[a].map(e => e.createdAt));
+        const bLatest = Math.max(...exerciseGroups[b].map(e => e.createdAt));
+        return bLatest - aLatest;
+      });
+      const blocksHtml = exerciseNames.map(name => {
+        const sets = exerciseGroups[name].slice().sort((a,b) => b.createdAt - a.createdAt);
+        const totalSets = sets.reduce((s,e) => s + Number(e.sets), 0);
+        return `<div class="exercise-block">
+          <div class="exercise-heading">
+            <span class="exercise-name">${escapeHtml(name)}</span>
+            <span class="exercise-summary">計${totalSets}セット</span>
+          </div>
+          ${sets.map(setRow).join('')}
+        </div>`;
+      }).join('');
+      html += `<div class="date-group">
+        <div class="date-heading">${formatDateHeading(date)}</div>
+        ${blocksHtml}
+      </div>`;
+    });
+    listEl.innerHTML = html;
+  }
+
+  function setRow(e) {
+    return `<div class="entry ${tierClass(e.weight)}" data-id="${e.id}">
+      <div class="entry-detail"><span class="entry-weight">${e.weight}</span><span class="entry-unit">kg</span> × ${e.reps}回 × ${e.sets}セット</div>
+      <button class="delete-btn" data-id="${e.id}" aria-label="削除">×</button>
+    </div>`;
+  }
+
+  function renderAll() { renderStats(); renderWeekWidget(); renderList(); }
+
+  function onAdd() {
+    if (!selectedPart || !selectedExercise) {
+      showError('部位と種目を選択してください。');
+      return;
+    }
+    let exercise;
+    if (selectedExercise === 'その他') {
+      exercise = document.getElementById('customExerciseInput').value.trim();
+      if (!exercise) { showError('種目名を入力してください。'); return; }
+    } else {
+      exercise = selectedExercise;
+    }
+
+    const weight = parseFloat(document.getElementById('weightInput').value);
+    const reps = parseInt(document.getElementById('repsInput').value, 10);
+    const sets = parseInt(document.getElementById('setsInput').value, 10);
+
+    if (isNaN(weight) || weight <= 0 || isNaN(reps) || reps <= 0 || isNaN(sets) || sets <= 0) {
+      showError('重量・回数・セット数をすべて入力してください。');
+      return;
+    }
+    clearError();
+
+    entries.push({
+      id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+      exercise, weight, reps, sets,
+      part: selectedPart,
+      date: todayISO(),
+      createdAt: Date.now()
+    });
+
+    persist();
+    renderAll();
+
+    document.getElementById('weightInput').value = '';
+    document.getElementById('repsInput').value = '';
+    document.getElementById('setsInput').value = '';
+    document.getElementById('weightInput').focus();
+  }
+
+  document.getElementById('addBtn').addEventListener('click', onAdd);
+  ['weightInput','repsInput','setsInput','customExerciseInput'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') onAdd();
+    });
+  });
+
+  document.getElementById('logList').addEventListener('click', ev => {
+    const btn = ev.target.closest('.delete-btn');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    entries = entries.filter(e => e.id !== id);
+    persist();
+    renderAll();
+  });
+
+  document.getElementById('todayDate').textContent = formatHeaderDate();
+  loadExerciseData();
+  renderPartChips();
+  renderExerciseChips();
+  loadGoal();
+  loadEntries();
+</script>
+</body>
+</html>
