@@ -282,6 +282,7 @@
   .entry.tier-red { border-left-color: var(--tier-red); }
   .entry-exercise { font-size: 15px; margin-bottom: 3px; }
   .entry-detail { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .entry-set-no { color: var(--text-muted); margin-right: 4px; }
   .entry-weight { font-family: 'Oswald', sans-serif; font-size: 17px; color: var(--text); font-weight: 600; }
   .entry-unit { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
   .delete-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; line-height: 1; padding: 12px 12px; min-width: 44px; min-height: 44px; cursor: pointer; }
@@ -375,10 +376,6 @@
           <label class="field field-num">
             <span class="field-label">回数</span>
             <input type="number" id="repsInput" inputmode="numeric" min="0" placeholder="8" />
-          </label>
-          <label class="field field-num">
-            <span class="field-label">セット数</span>
-            <input type="number" id="setsInput" inputmode="numeric" min="0" placeholder="3" />
           </label>
         </div>
         <div class="form-footer">
@@ -522,7 +519,19 @@
   function loadEntries() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      entries = raw ? JSON.parse(raw) : [];
+      const loaded = raw ? JSON.parse(raw) : [];
+      let migrated = false;
+      const expanded = [];
+      loaded.forEach(e => {
+        const count = e.sets ? Number(e.sets) : 1;
+        if (e.sets !== undefined) migrated = true;
+        const { sets, ...rest } = e;
+        for (let i = 0; i < Math.max(count, 1); i++) {
+          expanded.push(i === 0 ? rest : { ...rest, id: rest.id + '-s' + i, createdAt: rest.createdAt + i });
+        }
+      });
+      entries = expanded;
+      if (migrated) persist();
     } catch (err) {
       entries = [];
     }
@@ -665,8 +674,8 @@
   function renderStats() {
     const today = todayISO();
     const todays = entries.filter(e => e.date === today);
-    const setsCount = todays.reduce((s,e) => s + Number(e.sets), 0);
-    const volume = todays.reduce((s,e) => s + e.weight * e.reps * e.sets, 0);
+    const setsCount = todays.length;
+    const volume = todays.reduce((s,e) => s + e.weight * e.reps, 0);
     const html = `
       <div class="stat">
         <div class="stat-value">${setsCount}</div>
@@ -731,13 +740,13 @@
       });
       const blocksHtml = exerciseNames.map(name => {
         const sets = exerciseGroups[name].slice().sort((a,b) => b.createdAt - a.createdAt);
-        const totalSets = sets.reduce((s,e) => s + Number(e.sets), 0);
+        const totalSets = sets.length;
         return `<div class="exercise-block">
           <div class="exercise-heading">
             <span class="exercise-name">${escapeHtml(name)}</span>
             <span class="exercise-summary">計${totalSets}セット</span>
           </div>
-          ${sets.map(setRow).join('')}
+          ${sets.map((e, i) => setRow(e, sets.length - i)).join('')}
         </div>`;
       }).join('');
       html += `<div class="date-group">
@@ -748,9 +757,9 @@
     listEl.innerHTML = html;
   }
 
-  function setRow(e) {
+  function setRow(e, setNumber) {
     return `<div class="entry ${tierClass(e.weight)}" data-id="${e.id}">
-      <div class="entry-detail"><span class="entry-weight">${e.weight}</span><span class="entry-unit">kg</span> × ${e.reps}回 × ${e.sets}セット</div>
+      <div class="entry-detail"><span class="entry-set-no">${setNumber}セット目</span> <span class="entry-weight">${e.weight}</span><span class="entry-unit">kg</span> × ${e.reps}回</div>
       <button class="delete-btn" data-id="${e.id}" aria-label="削除">×</button>
     </div>`;
   }
@@ -772,17 +781,16 @@
 
     const weight = parseFloat(document.getElementById('weightInput').value);
     const reps = parseInt(document.getElementById('repsInput').value, 10);
-    const sets = parseInt(document.getElementById('setsInput').value, 10);
 
-    if (isNaN(weight) || weight <= 0 || isNaN(reps) || reps <= 0 || isNaN(sets) || sets <= 0) {
-      showError('重量・回数・セット数をすべて入力してください。');
+    if (isNaN(weight) || weight <= 0 || isNaN(reps) || reps <= 0) {
+      showError('重量・回数を入力してください。');
       return;
     }
     clearError();
 
     entries.push({
       id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
-      exercise, weight, reps, sets,
+      exercise, weight, reps,
       part: selectedPart,
       date: todayISO(),
       createdAt: Date.now()
@@ -791,14 +799,12 @@
     persist();
     renderAll();
 
-    document.getElementById('weightInput').value = '';
     document.getElementById('repsInput').value = '';
-    document.getElementById('setsInput').value = '';
-    document.getElementById('weightInput').focus();
+    document.getElementById('repsInput').focus();
   }
 
   document.getElementById('addBtn').addEventListener('click', onAdd);
-  ['weightInput','repsInput','setsInput','customExerciseInput'].forEach(id => {
+  ['weightInput','repsInput','customExerciseInput'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', ev => {
       if (ev.key === 'Enter') onAdd();
     });
